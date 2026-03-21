@@ -93,10 +93,8 @@ justify-content:center;
 cursor:pointer;
 font-size:22px;
 
-/* НЕТ рамок */
 border:none;
 
-/* мягкий объём */
 background:linear-gradient(#111,#000);
 box-shadow:
 0 4px 10px rgba(0,0,0,0.8),
@@ -105,19 +103,19 @@ inset 0 1px 2px rgba(255,255,255,0.1);
 transition:.2s;
 }
 
-/* цвета */
+/* цвета толпы */
 
 .cold{color:#0f0;}
 .warm{color:#aa0;}
 .hot{color:#f50;}
 .extreme{color:#f00;}
 
-/* выбор — без рамки, только свечение */
+/* выбранные — неон */
 
 .mine{
 box-shadow:
-0 0 12px #7fffd4,
-0 4px 10px rgba(0,0,0,0.8),
+0 0 14px #7fffd4,
+0 0 25px #00ffaa,
 inset 0 1px 2px rgba(255,255,255,0.2);
 }
 
@@ -216,7 +214,7 @@ selected.forEach(x=>popularity[x-1]++)
 
 }
 
-/* heat */
+/* только цвет, БЕЗ scale */
 function heatmap(){
 
 cells.forEach((cell,i)=>{
@@ -229,8 +227,6 @@ if(v==0) cell.classList.add("cold")
 else if(v<=3) cell.classList.add("warm")
 else if(v<=6) cell.classList.add("hot")
 else cell.classList.add("extreme")
-
-cell.style.transform="scale("+(1+v*0.02)+")"
 
 })
 
