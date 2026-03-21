@@ -81,7 +81,7 @@ inset 0 1px 2px rgba(255,255,255,0.2);
 
 <script>
 
-/* ✅ ТВОИ ДАННЫЕ УЖЕ ВСТАВЛЕНЫ */
+/* твои ключи */
 const SUPABASE_URL = "https://uakvsitsifrsrkplvxma.supabase.co"
 const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
@@ -90,9 +90,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 /* game */
 
 let TOTAL=49
-let time=20
 let selected=null
-let round=Math.floor(Date.now()/20000)
 
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
@@ -116,8 +114,7 @@ cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
 await client.from("votes").insert({
-number:i,
-round:round
+number:i
 })
 
 }
@@ -134,7 +131,7 @@ async function loadVotes(){
 let { data } = await client
 .from("votes")
 .select("number")
-.eq("round", round)
+.limit(200)
 
 if(!data) return
 
@@ -176,22 +173,22 @@ loadVotes()
 })
 .subscribe()
 
-/* loop */
+/* СИНХРОННЫЙ ТАЙМЕР */
 
 setInterval(()=>{
 
-time--
+let now = Date.now()
+let roundTime = 20000
 
-document.getElementById("timer").innerText="Next update in "+time
+let timeLeft = Math.ceil((roundTime - (now % roundTime)) / 1000)
 
-if(time<=0){
+document.getElementById("timer").innerText = "Next update in " + timeLeft
 
-round=Math.floor(Date.now()/20000)
+/* сброс выбора в новый раунд */
 
-selected=null
+if(timeLeft === 20){
+selected = null
 cells.forEach(c=>c.classList.remove("mine"))
-
-time=20
 }
 
 loadVotes()
