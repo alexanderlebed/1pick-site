@@ -23,9 +23,16 @@ text-align:center;
 h1{margin-top:20px;}
 
 #subtitle{color:#9f9;}
-#tagline{color:#7fffd4;margin-bottom:15px;}
+#tagline{color:#7fffd4;margin-bottom:10px;}
 
 #timer{font-size:40px;margin-top:10px;}
+
+#result{
+margin-top:10px;
+font-size:18px;
+color:#7fffd4;
+height:24px;
+}
 
 #grid{
 display:grid;
@@ -61,8 +68,7 @@ border:none;
 .mine{
 box-shadow:
 0 0 14px #7fffd4,
-0 0 25px #00ffaa,
-inset 0 1px 2px rgba(255,255,255,0.2);
+0 0 25px #00ffaa;
 }
 
 </style>
@@ -76,6 +82,7 @@ inset 0 1px 2px rgba(255,255,255,0.2);
 <div id="tagline">Think different. Win.</div>
 
 <div id="timer">20</div>
+<div id="result"></div>
 
 <div id="grid"></div>
 
@@ -91,12 +98,13 @@ let selected=null
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
 
+let lastRound = null
+
 const grid=document.getElementById("grid")
 
 for(let i=1;i<=TOTAL;i++){
 
 let cell=document.createElement("div")
-
 cell.className="number cold"
 cell.innerText=i.toString().padStart(2,"0")
 
@@ -113,18 +121,18 @@ await client.from("votes").insert({ number:i })
 
 grid.appendChild(cell)
 cells.push(cell)
-
 }
 
 /* загрузка */
 
 async function loadVotes(){
 
+let since = new Date(Date.now() - 20000).toISOString()
+
 let { data } = await client
 .from("votes")
 .select("number")
-.order("created_at", { ascending: false })
-.limit(200)
+.gte("created_at", since)
 
 if(!data) return
 
@@ -135,7 +143,6 @@ popularity[v.number-1]++
 })
 
 heatmap()
-
 }
 
 /* heat */
@@ -154,26 +161,58 @@ else if(v<=6) cell.classList.add("hot")
 else cell.classList.add("extreme")
 
 })
+}
+
+/* РЕЗУЛЬТАТ */
+
+function showResult(){
+
+if(selected==null) return
+
+let my = popularity[selected-1]
+
+let better = popularity.filter(v=>v > my).length
+
+let percentile = Math.round((better / TOTAL)*100)
+
+let txt = ""
+
+if(my<=1){
+txt = "🔥 Genius move"
+}else if(my<=3){
+txt = "👍 Good pick"
+}else{
+txt = "😬 Too obvious"
+}
+
+txt += " • Better than " + percentile + "%"
+
+document.getElementById("result").innerText = txt
 
 }
 
-/* СИНХРОННЫЙ ТАЙМЕР + ОБНОВЛЕНИЕ */
+/* таймер */
 
 setInterval(()=>{
 
 let now = Date.now()
 let roundTime = 20000
 
+let currentRound = Math.floor(now / roundTime)
+
 let timeLeft = Math.ceil((roundTime - (now % roundTime)) / 1000)
 
 document.getElementById("timer").innerText = "Next update in " + timeLeft
 
-if(timeLeft === 20){
+if(lastRound !== null && currentRound !== lastRound){
+showResult()
+
 selected = null
 cells.forEach(c=>c.classList.remove("mine"))
 }
 
-/* КЛЮЧ: обновляем всегда */
+lastRound = currentRound
+
 loadVotes()
 
 },1000)
