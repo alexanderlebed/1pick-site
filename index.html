@@ -23,20 +23,27 @@ text-align:center;
 h1{margin-top:20px;}
 
 #subtitle{color:#9f9;}
-#tagline{color:#7fffd4;margin-bottom:10px;}
+#tagline{color:#7fffd4;}
 
 #timer{font-size:40px;margin-top:10px;}
 
-#players{
+#players{color:#9f9;margin-top:5px;}
+
+#score{
 margin-top:5px;
-color:#9f9;
+color:#0ff;
 }
 
 #result{
 margin-top:10px;
 font-size:18px;
 color:#7fffd4;
-height:24px;
+height:28px;
+}
+
+#jackpot{
+margin-top:5px;
+color:#ff0;
 }
 
 #grid{
@@ -61,8 +68,6 @@ box-shadow:
 0 4px 10px rgba(0,0,0,0.8),
 inset 0 1px 2px rgba(255,255,255,0.1);
 
-transition:.2s;
-border:none;
 }
 
 .cold{color:#0f0;}
@@ -71,9 +76,7 @@ border:none;
 .extreme{color:#f00;}
 
 .mine{
-box-shadow:
-0 0 14px #7fffd4,
-0 0 25px #00ffaa;
+box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
 }
 
 </style>
@@ -83,11 +86,13 @@ box-shadow:
 
 <h1>1pick</h1>
 
-<div id="subtitle">You have ONE pick to beat the crowd</div>
+<div id="subtitle">Beat the crowd. Win real reward.</div>
 <div id="tagline">Think different. Win.</div>
 
 <div id="timer">20</div>
-<div id="players">Players online: ...</div>
+<div id="players"></div>
+<div id="jackpot">🏆 Daily Prize: €10</div>
+<div id="score">Your score: 0</div>
 <div id="result"></div>
 
 <div id="grid"></div>
@@ -101,6 +106,8 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
 let TOTAL=49
 let selected=null
+let score=0
+
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
 let lastRound=null
@@ -116,7 +123,6 @@ cell.innerText=i.toString().padStart(2,"0")
 cell.onclick=async ()=>{
 
 selected=i
-
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
@@ -128,16 +134,16 @@ grid.appendChild(cell)
 cells.push(cell)
 }
 
-/* загрузка */
+/* load */
 
 async function loadVotes(){
 
-let since = new Date(Date.now() - 20000).toISOString()
+let since=new Date(Date.now()-20000).toISOString()
 
 let { data } = await client
 .from("votes")
-.select("number, created_at")
-.gte("created_at", since)
+.select("number,created_at")
+.gte("created_at",since)
 
 if(!data) return
 
@@ -147,12 +153,10 @@ data.forEach(v=>{
 popularity[v.number-1]++
 })
 
+document.getElementById("players").innerText =
+"Players online: "+data.length
+
 heatmap()
-
-/* 👇 СЧИТАЕМ ОНЛАЙН */
-let players = data.length
-document.getElementById("players").innerText = "Players online: " + players
-
 }
 
 /* heat */
@@ -173,45 +177,55 @@ else cell.classList.add("extreme")
 })
 }
 
-/* результат */
+/* result + очки */
 
 function showResult(){
 
 if(selected==null) return
 
-let my = popularity[selected-1]
+let my=popularity[selected-1]
 
-let worse = popularity.filter(v=>v > my).length
-let percent = Math.round((worse / TOTAL)*100)
+let gain=0
 
-let text=""
+if(my<=1) gain=10
+else if(my<=3) gain=5
+else if(my<=6) gain=2
 
-if(percent>=90){
-text="🔥 TOP 10%"
-}else if(percent>=70){
-text="👍 Better than "+percent+"%"
-}else if(percent>=40){
-text="🙂 Average "+percent+"%"
-}else{
-text="😬 Too obvious "+percent+"%"
+score+=gain
+
+document.getElementById("score").innerText =
+"Your score: "+score
+
+let txt=""
+
+if(gain>=10){
+txt="🔥 PERFECT — +10"
+}
+else if(gain>=5){
+txt="👍 GOOD — +5"
+}
+else if(gain>0){
+txt="🙂 +2"
+}
+else{
+txt="😬 0"
 }
 
-document.getElementById("result").innerText=text
+document.getElementById("result").innerText=txt
 
 }
 
-/* таймер */
+/* timer */
 
 setInterval(()=>{
 
-let now = Date.now()
-let roundTime = 20000
+let now=Date.now()
+let roundTime=20000
 
-let currentRound = Math.floor(now / roundTime)
+let currentRound=Math.floor(now/roundTime)
+let timeLeft=Math.ceil((roundTime-(now%roundTime))/1000)
 
-let timeLeft = Math.ceil((roundTime - (now % roundTime)) / 1000)
-
-document.getElementById("timer").innerText="Next update in "+timeLeft
+document.getElementById("timer").innerText=timeLeft
 
 if(lastRound!==null && currentRound!==lastRound){
 
@@ -232,4 +246,3 @@ loadVotes()
 
 </body>
 </html>
-
