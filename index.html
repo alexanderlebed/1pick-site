@@ -26,7 +26,6 @@ h1{margin-top:20px;}
 #tagline{color:#7fffd4;}
 
 #timer{font-size:40px;margin-top:10px;}
-
 #players{color:#9f9;margin-top:5px;}
 
 #score{margin-top:6px;color:#0ff;font-size:18px;}
@@ -56,11 +55,7 @@ align-items:center;
 justify-content:center;
 cursor:pointer;
 font-size:18px;
-
-background:linear-gradient(#111,#000);
-box-shadow:
-0 4px 10px rgba(0,0,0,0.8),
-inset 0 1px 2px rgba(255,255,255,0.1);
+background:#111;
 }
 
 .cold{color:#0f0;}
@@ -69,7 +64,7 @@ inset 0 1px 2px rgba(255,255,255,0.1);
 .extreme{color:#f00;}
 
 .mine{
-box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
+box-shadow:0 0 14px #7fffd4;
 }
 
 </style>
@@ -98,8 +93,9 @@ box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
 const SUPABASE_URL = "https://uakvsitsifrsrkplvxma.supabase.co"
 const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
-const { createClient } = supabase
-const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+console.log("Supabase client:", client)
 
 /* игрок */
 let playerId = localStorage.getItem("player_id")
@@ -137,7 +133,7 @@ selected=i
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-await client.from("votes").upsert(
+let { error } = await client.from("votes").upsert(
 {
   player: playerId,
   number: i,
@@ -147,6 +143,12 @@ await client.from("votes").upsert(
   onConflict: "player"
 })
 
+if(error){
+console.log("INSERT ERROR:", error)
+}else{
+console.log("INSERT OK")
+}
+
 }
 
 grid.appendChild(cell)
@@ -155,9 +157,14 @@ cells.push(cell)
 
 async function loadVotes(){
 
-let { data } = await client
+let { data, error } = await client
 .from("votes")
 .select("number,round")
+
+if(error){
+console.log("LOAD ERROR:", error)
+return
+}
 
 if(!data) return
 
@@ -247,9 +254,7 @@ document.getElementById("streak").innerText="Streak: "+streak+" (best "+bestStre
 let el=document.getElementById("result")
 el.innerText=text
 
-setTimeout(()=>{
-el.innerText=""
-},2000)
+setTimeout(()=>{ el.innerText="" },2000)
 
 }
 
