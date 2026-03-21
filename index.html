@@ -8,7 +8,7 @@
 <style>
 body{background:#000;color:#0f0;font-family:monospace;text-align:center}
 #grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:300px;margin:20px auto}
-.cell{padding:20px;border:1px solid #0f0;cursor:pointer}
+.cell{padding:20px;border:1px solid #0f0;cursor:pointer;transition:.2s}
 .mine{background:#0f0;color:#000}
 </style>
 </head>
@@ -16,8 +16,8 @@ body{background:#000;color:#0f0;font-family:monospace;text-align:center}
 <body>
 
 <h1>1pick</h1>
-<p>Pick 5 numbers. Avoid the crowd.</p>
-<div id="timer">10</div>
+<p>Pick 3 numbers. Avoid the crowd.</p>
+<div id="timer">20</div>
 
 <div id="grid"></div>
 
@@ -26,7 +26,7 @@ body{background:#000;color:#0f0;font-family:monospace;text-align:center}
 <script>
 
 let TOTAL=15
-let PICK=5
+let PICK=3
 
 let selected=[]
 let pop=new Array(TOTAL).fill(0)
@@ -39,6 +39,9 @@ d.className="cell"
 d.innerText=i
 
 d.onclick=()=>{
+
+if(navigator.vibrate) navigator.vibrate(15)
+
 if(selected.includes(i)){
 selected=selected.filter(x=>x!==i)
 d.classList.remove("mine")
@@ -52,37 +55,80 @@ grid.appendChild(d)
 }
 
 function simulate(){
+
 pop=new Array(TOTAL).fill(0)
 
 for(let p=0;p<100;p++){
+
 let nums=[]
+
 while(nums.length<PICK){
 let n=Math.floor(Math.random()*TOTAL)
 if(!nums.includes(n)) nums.push(n)
 }
+
 nums.forEach(x=>pop[x]++)
 }
 
 selected.forEach(x=>pop[x-1]++)
 }
 
-function submit(){
-if(selected.length!=PICK){alert("pick 5");return}
-alert("locked")
+function playWinSound(){
+
+let notes=["C4","E4","G4"]
+
+notes.forEach((n,i)=>{
+
+setTimeout(()=>{
+
+let audio=new Audio(
+"https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/MusyngKite/acoustic_grand_piano-mp3/"+n+".mp3"
+)
+
+audio.play()
+
+},i*200)
+
+})
+
 }
 
-let time=10
+function submit(){
+
+if(selected.length!=PICK){
+alert("Pick 3 numbers")
+return
+}
+
+alert("Submitted. You can still change.")
+
+}
+
+let time=20
 
 setInterval(()=>{
+
 time--
-document.getElementById("timer").innerText=time
+
+document.getElementById("timer").innerText="Next update in "+time
 
 simulate()
 
 if(time<=0){
-alert("round end")
-time=10
+
+let txt="You vs Crowd:\n\n"
+
+selected.forEach(n=>{
+txt+=n+" → "+pop[n-1]+" players\n"
+})
+
+playWinSound()
+
+alert(txt)
+
+time=20
 }
+
 },1000)
 
 </script>
