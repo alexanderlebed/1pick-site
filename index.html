@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1pick</title>
+
+<style>
+body{background:#000;color:#0f0;font-family:monospace;text-align:center}
+#grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:300px;margin:20px auto}
+.cell{padding:20px;border:1px solid #0f0;cursor:pointer}
+.mine{background:#0f0;color:#000}
+</style>
+</head>
+
+<body>
+
+<h1>1pick</h1>
+<p>Pick 5 numbers. Avoid the crowd.</p>
+<div id="timer">10</div>
+
+<div id="grid"></div>
+
+<button onclick="submit()">SUBMIT</button>
+
+<script>
+
+let TOTAL=15
+let PICK=5
+
+let selected=[]
+let pop=new Array(TOTAL).fill(0)
+
+let grid=document.getElementById("grid")
+
+for(let i=1;i<=TOTAL;i++){
+let d=document.createElement("div")
+d.className="cell"
+d.innerText=i
+
+d.onclick=()=>{
+if(selected.includes(i)){
+selected=selected.filter(x=>x!==i)
+d.classList.remove("mine")
+}else if(selected.length<PICK){
+selected.push(i)
+d.classList.add("mine")
+}
+}
+
+grid.appendChild(d)
+}
+
+function simulate(){
+pop=new Array(TOTAL).fill(0)
+
+for(let p=0;p<100;p++){
+let nums=[]
+while(nums.length<PICK){
+let n=Math.floor(Math.random()*TOTAL)
+if(!nums.includes(n)) nums.push(n)
+}
+nums.forEach(x=>pop[x]++)
+}
+
+selected.forEach(x=>pop[x-1]++)
+}
+
+function submit(){
+if(selected.length!=PICK){alert("pick 5");return}
+alert("locked")
+}
+
+let time=10
+
+setInterval(()=>{
+time--
+document.getElementById("timer").innerText=time
+
+simulate()
+
+if(time<=0){
+alert("round end")
+time=10
+}
+},1000)
+
+</script>
+
+</body>
+</html>
