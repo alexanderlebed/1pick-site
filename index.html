@@ -100,7 +100,7 @@ const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
-/* уникальный игрок */
+/* игрок */
 let playerId = localStorage.getItem("player_id")
 if(!playerId){
 playerId = "P"+Math.floor(Math.random()*1000000)
@@ -120,6 +120,11 @@ let lastRound=null
 
 const grid=document.getElementById("grid")
 
+/* текущий раунд */
+function getRound(){
+return Math.floor(Date.now()/20000)
+}
+
 for(let i=1;i<=TOTAL;i++){
 
 let cell=document.createElement("div")
@@ -135,7 +140,8 @@ cell.classList.add("mine")
 await client.from("votes").upsert(
 {
   player: playerId,
-  number: i
+  number: i,
+  round: getRound()
 },
 {
   onConflict: "player"
@@ -151,23 +157,27 @@ cells.push(cell)
 
 async function loadVotes(){
 
-let since=new Date(Date.now()-20000).toISOString()
-
 let { data } = await client
 .from("votes")
-.select("number,created_at")
-.gte("created_at",since)
+.select("number,round")
 
 if(!data) return
 
+let currentRound = getRound()
+
 popularity=new Array(TOTAL).fill(0)
 
+let count = 0
+
 data.forEach(v=>{
+if(v.round === currentRound){
 popularity[v.number-1]++
+count++
+}
 })
 
 document.getElementById("players").innerText =
-"Players online: "+data.length
+"Players online: "+count
 
 heatmap()
 }
