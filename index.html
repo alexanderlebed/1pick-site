@@ -16,30 +16,24 @@ body{
 background:#000;
 color:#cfc;
 font-family:'Roboto Mono', monospace;
-margin:0;
 text-align:center;
+margin:0;
 }
 
-h1{margin-top:20px;}
-
-#timer{font-size:40px;margin-top:10px;}
-#players{color:#9f9;margin-top:5px;}
-
-#score{color:#0ff;margin-top:6px;}
-#rank{color:#ff0;}
-#streak{color:#f80;}
-
-#leaderboard{
-margin-top:15px;
-font-size:14px;
-color:#fff;
+#timer{
+font-size:40px;
+margin-top:20px;
 }
 
-#result{
+#rarity{
 margin-top:10px;
-font-size:20px;
 color:#7fffd4;
-height:26px;
+height:20px;
+}
+
+#score{
+margin-top:5px;
+color:#0ff;
 }
 
 #grid{
@@ -57,8 +51,7 @@ display:flex;
 align-items:center;
 justify-content:center;
 cursor:pointer;
-font-size:18px;
-background:linear-gradient(#111,#000);
+background:#111;
 }
 
 .cold{color:#0f0;}
@@ -67,7 +60,7 @@ background:linear-gradient(#111,#000);
 .extreme{color:#f00;}
 
 .mine{
-box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
+box-shadow:0 0 12px #7fffd4;
 }
 
 </style>
@@ -75,39 +68,22 @@ box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
 
 <body>
 
-<h1>1pick</h1>
-
 <div id="timer">20</div>
-<div id="players"></div>
-
+<div id="rarity"></div>
 <div id="score">Points: 0</div>
-<div id="rank">Rank: Beginner</div>
-<div id="streak">Streak: 0</div>
-
-<div id="leaderboard">Top today:<br>loading...</div>
-
-<div id="result"></div>
 
 <div id="grid"></div>
 
 <script>
 
-const SUPABASE_URL = "https://uakvsitsifrsrkplvxma.supabase.co"
-const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
+const SUPABASE_URL="https://uakvsitsifrsrkplvxma.supabase.co"
+const SUPABASE_KEY="sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-
-/* уникальный ID игрока */
-let playerId = localStorage.getItem("player_id")
-if(!playerId){
-playerId = "P" + Math.floor(Math.random()*1000000)
-localStorage.setItem("player_id", playerId)
-}
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)
 
 let TOTAL=49
 let selected=null
 let score=0
-let streak=0
 
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
@@ -119,15 +95,16 @@ for(let i=1;i<=TOTAL;i++){
 
 let cell=document.createElement("div")
 cell.className="number cold"
-cell.innerText=i.toString().padStart(2,"0")
+cell.innerText=i
 
 cell.onclick=async ()=>{
 
 selected=i
+
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-await client.from("votes").insert({ number:i })
+await client.from("votes").insert({number:i})
 
 }
 
@@ -135,18 +112,18 @@ grid.appendChild(cell)
 cells.push(cell)
 }
 
-/* load votes */
+/* load */
 
 async function loadVotes(){
 
 let since=new Date(Date.now()-20000).toISOString()
 
-let { data } = await client
+let {data}=await client
 .from("votes")
-.select("number,created_at")
+.select("number")
 .gte("created_at",since)
 
-if(!data) return
+if(!data)return
 
 popularity=new Array(TOTAL).fill(0)
 
@@ -154,42 +131,8 @@ data.forEach(v=>{
 popularity[v.number-1]++
 })
 
-document.getElementById("players").innerText =
-"Players online: "+data.length
-
 heatmap()
-}
-
-/* leaderboard save */
-
-async function saveScore(){
-
-await client.from("scores").upsert({
-player:playerId,
-points:score
-})
-
-}
-
-/* leaderboard load */
-
-async function loadLeaderboard(){
-
-let { data } = await client
-.from("scores")
-.select("*")
-.order("points",{ascending:false})
-.limit(5)
-
-if(!data) return
-
-let html="Top today:<br>"
-
-data.forEach((p,i)=>{
-html+=(i+1)+". "+p.player+" — "+p.points+"<br>"
-})
-
-document.getElementById("leaderboard").innerHTML=html
+updateRarity()
 
 }
 
@@ -211,70 +154,62 @@ else cell.classList.add("extreme")
 })
 }
 
-/* rank */
+/* rarity */
 
-function getRank(p){
-if(p<50) return "Beginner"
-if(p<150) return "Thinker"
-if(p<300) return "Strategist"
-return "Master"
-}
-
-/* result */
-
-function showResult(){
+function updateRarity(){
 
 if(selected==null) return
 
 let my=popularity[selected-1]
 
-let gain=0
+let text=""
 
-if(my<=1){gain=10;streak++}
-else if(my<=3){gain=5;streak++}
-else if(my<=6){gain=2;streak=0}
-else{gain=0;streak=0}
+if(my<=1) text="rare"
+else if(my<=3) text="uncommon"
+else if(my<=6) text="common"
+else text="very common"
 
-score+=gain
-
-document.getElementById("score").innerText="Points: "+score
-document.getElementById("rank").innerText="Rank: "+getRank(score)
-document.getElementById("streak").innerText="Streak: "+streak
-
-saveScore()
-loadLeaderboard()
-
-let txt = gain>0 ? "+"+gain : "0"
-
-let el=document.getElementById("result")
-el.innerText=txt
-
-setTimeout(()=>{el.innerText=""},2000)
+document.getElementById("rarity").innerText=text
 
 }
 
-/* timer */
+/* end */
 
-setInterval(()=>{
+function endRound(){
 
-let now=Date.now()
-let roundTime=20000
+if(selected==null) return
 
-let currentRound=Math.floor(now/roundTime)
-let timeLeft=Math.ceil((roundTime-(now%roundTime))/1000)
+let min = Math.min(...popularity.filter(v=>v>0))
+let my = popularity[selected-1]
 
-document.getElementById("timer").innerText=timeLeft
+if(my===min){
+score+=10
+}
 
-if(lastRound!==null && currentRound!==lastRound){
-
-showResult()
+document.getElementById("score").innerText="Points: "+score
 
 selected=null
 cells.forEach(c=>c.classList.remove("mine"))
 
 }
 
-lastRound=currentRound
+/* loop */
+
+setInterval(()=>{
+
+let now=Date.now()
+let roundTime=20000
+
+let round=Math.floor(now/roundTime)
+let time=Math.ceil((roundTime-(now%roundTime))/1000)
+
+document.getElementById("timer").innerText=time
+
+if(lastRound!==null && round!==lastRound){
+endRound()
+}
+
+lastRound=round
 
 loadVotes()
 
