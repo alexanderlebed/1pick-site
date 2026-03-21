@@ -1,1 +1,245 @@
-<!-- TEST -->
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>1pick</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+
+body{
+background:#000;
+color:#cfc;
+font-family:'Roboto Mono', monospace;
+text-align:center;
+margin:0;
+}
+
+#timer{
+font-size:40px;
+margin-top:20px;
+}
+
+#rarity{
+margin-top:10px;
+color:#7fffd4;
+height:20px;
+}
+
+#result{
+margin-top:10px;
+height:24px;
+}
+
+#score{
+margin-top:5px;
+color:#0ff;
+}
+
+#grid{
+display:grid;
+grid-template-columns:repeat(7,1fr);
+gap:10px;
+width:95vw;
+max-width:520px;
+margin:20px auto;
+}
+
+.number{
+aspect-ratio:1/1;
+display:flex;
+align-items:center;
+justify-content:center;
+cursor:pointer;
+background:#111;
+}
+
+.cold{color:#0f0;}
+.warm{color:#aa0;}
+.hot{color:#f50;}
+.extreme{color:#f00;}
+
+.mine{
+box-shadow:0 0 12px #7fffd4;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="timer">20</div>
+<div id="rarity"></div>
+<div id="result"></div>
+<div id="score">Points: 0</div>
+
+<div id="grid"></div>
+
+<script>
+
+const SUPABASE_URL="https://uakvsitsifrsrkplvxma.supabase.co"
+const SUPABASE_KEY="sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
+
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)
+
+/* уникальный игрок */
+let playerId = localStorage.getItem("player_id")
+if(!playerId){
+playerId = "P"+Math.floor(Math.random()*1000000)
+localStorage.setItem("player_id", playerId)
+}
+
+let TOTAL=49
+let selected=null
+let score=0
+
+let popularity=new Array(TOTAL).fill(0)
+let cells=[]
+let lastRound=null
+
+const grid=document.getElementById("grid")
+
+for(let i=1;i<=TOTAL;i++){
+
+let cell=document.createElement("div")
+cell.className="number cold"
+cell.innerText=i
+
+cell.onclick=async ()=>{
+
+selected=i
+
+cells.forEach(c=>c.classList.remove("mine"))
+cell.classList.add("mine")
+
+/* фикс: один игрок = один голос */
+await client.from("votes").upsert({
+player: playerId,
+number: i
+})
+
+}
+
+grid.appendChild(cell)
+cells.push(cell)
+}
+
+/* загрузка */
+
+async function loadVotes(){
+
+let since=new Date(Date.now()-20000).toISOString()
+
+let {data}=await client
+.from("votes")
+.select("number")
+.gte("created_at",since)
+
+if(!data)return
+
+popularity=new Array(TOTAL).fill(0)
+
+data.forEach(v=>{
+popularity[v.number-1]++
+})
+
+heatmap()
+updateRarity()
+
+}
+
+/* heat */
+
+function heatmap(){
+
+cells.forEach((cell,i)=>{
+
+cell.classList.remove("cold","warm","hot","extreme")
+
+let v=popularity[i]
+
+if(v<=1) cell.classList.add("cold")
+else if(v<=3) cell.classList.add("warm")
+else if(v<=6) cell.classList.add("hot")
+else cell.classList.add("extreme")
+
+})
+}
+
+/* rarity */
+
+function updateRarity(){
+
+if(selected==null) return
+
+let my=popularity[selected-1]
+
+let text=""
+
+if(my<=1) text="rare"
+else if(my<=3) text="uncommon"
+else if(my<=6) text="common"
+else text="very common"
+
+document.getElementById("rarity").innerText=text
+
+}
+
+/* конец раунда */
+
+function endRound(){
+
+if(selected==null) return
+
+let min = Math.min(...popularity.filter(v=>v>0))
+let my = popularity[selected-1]
+
+let el=document.getElementById("result")
+
+if(my===min){
+score+=10
+el.innerText="WIN +10"
+}else{
+el.innerText="lose"
+}
+
+document.getElementById("score").innerText="Points: "+score
+
+setTimeout(()=>{el.innerText=""},2000)
+
+selected=null
+cells.forEach(c=>c.classList.remove("mine"))
+
+}
+
+/* loop */
+
+setInterval(()=>{
+
+let now=Date.now()
+let roundTime=20000
+
+let round=Math.floor(now/roundTime)
+let time=Math.ceil((roundTime-(now%roundTime))/1000)
+
+document.getElementById("timer").innerText=time
+
+if(lastRound!==null && round!==lastRound){
+endRound()
+}
+
+lastRound=round
+
+loadVotes()
+
+},1000)
+
+</script>
+
+</body>
+</html>
