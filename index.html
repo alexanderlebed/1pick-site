@@ -27,6 +27,11 @@ h1{margin-top:20px;}
 
 #timer{font-size:40px;margin-top:10px;}
 
+#players{
+margin-top:5px;
+color:#9f9;
+}
+
 #result{
 margin-top:10px;
 font-size:18px;
@@ -82,6 +87,7 @@ box-shadow:
 <div id="tagline">Think different. Win.</div>
 
 <div id="timer">20</div>
+<div id="players">Players online: ...</div>
 <div id="result"></div>
 
 <div id="grid"></div>
@@ -97,8 +103,7 @@ let TOTAL=49
 let selected=null
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
-
-let lastRound = null
+let lastRound=null
 
 const grid=document.getElementById("grid")
 
@@ -131,7 +136,7 @@ let since = new Date(Date.now() - 20000).toISOString()
 
 let { data } = await client
 .from("votes")
-.select("number")
+.select("number, created_at")
 .gte("created_at", since)
 
 if(!data) return
@@ -143,6 +148,11 @@ popularity[v.number-1]++
 })
 
 heatmap()
+
+/* 👇 СЧИТАЕМ ОНЛАЙН */
+let players = data.length
+document.getElementById("players").innerText = "Players online: " + players
+
 }
 
 /* heat */
@@ -163,7 +173,7 @@ else cell.classList.add("extreme")
 })
 }
 
-/* РЕЗУЛЬТАТ */
+/* результат */
 
 function showResult(){
 
@@ -171,23 +181,22 @@ if(selected==null) return
 
 let my = popularity[selected-1]
 
-let better = popularity.filter(v=>v > my).length
+let worse = popularity.filter(v=>v > my).length
+let percent = Math.round((worse / TOTAL)*100)
 
-let percentile = Math.round((better / TOTAL)*100)
+let text=""
 
-let txt = ""
-
-if(my<=1){
-txt = "🔥 Genius move"
-}else if(my<=3){
-txt = "👍 Good pick"
+if(percent>=90){
+text="🔥 TOP 10%"
+}else if(percent>=70){
+text="👍 Better than "+percent+"%"
+}else if(percent>=40){
+text="🙂 Average "+percent+"%"
 }else{
-txt = "😬 Too obvious"
+text="😬 Too obvious "+percent+"%"
 }
 
-txt += " • Better than " + percentile + "%"
-
-document.getElementById("result").innerText = txt
+document.getElementById("result").innerText=text
 
 }
 
@@ -202,16 +211,18 @@ let currentRound = Math.floor(now / roundTime)
 
 let timeLeft = Math.ceil((roundTime - (now % roundTime)) / 1000)
 
-document.getElementById("timer").innerText = "Next update in " + timeLeft
+document.getElementById("timer").innerText="Next update in "+timeLeft
 
-if(lastRound !== null && currentRound !== lastRound){
+if(lastRound!==null && currentRound!==lastRound){
+
 showResult()
 
-selected = null
+selected=null
 cells.forEach(c=>c.classList.remove("mine"))
+
 }
 
-lastRound = currentRound
+lastRound=currentRound
 
 loadVotes()
 
@@ -221,3 +232,4 @@ loadVotes()
 
 </body>
 </html>
+
