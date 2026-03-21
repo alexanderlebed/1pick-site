@@ -79,7 +79,7 @@ transition:0.3s;
 #grid{
 display:grid;
 grid-template-columns:repeat(5,1fr);
-gap:6px;
+gap:12px;
 width:95vw;
 max-width:420px;
 margin:20px auto;
@@ -91,24 +91,34 @@ display:flex;
 align-items:center;
 justify-content:center;
 cursor:pointer;
-border:2px solid transparent;
-font-size:18px;
+font-size:22px;
 
+/* НЕТ рамок */
+border:none;
+
+/* мягкий объём */
 background:linear-gradient(#111,#000);
 box-shadow:
-0 2px 4px #000,
-inset 0 1px 2px rgba(255,255,255,0.15);
+0 4px 10px rgba(0,0,0,0.8),
+inset 0 1px 2px rgba(255,255,255,0.1);
 
 transition:.2s;
 }
+
+/* цвета */
 
 .cold{color:#0f0;}
 .warm{color:#aa0;}
 .hot{color:#f50;}
 .extreme{color:#f00;}
 
+/* выбор — без рамки, только свечение */
+
 .mine{
-border:2px solid #7fffd4;
+box-shadow:
+0 0 12px #7fffd4,
+0 4px 10px rgba(0,0,0,0.8),
+inset 0 1px 2px rgba(255,255,255,0.2);
 }
 
 </style>
@@ -185,7 +195,7 @@ cells.push(cell)
 
 }
 
-/* simulate crowd */
+/* simulate */
 function simulate(){
 
 popularity=new Array(TOTAL).fill(0)
@@ -193,7 +203,6 @@ popularity=new Array(TOTAL).fill(0)
 for(let p=0;p<100;p++){
 
 let nums=[]
-
 while(nums.length<PICK){
 let n=Math.floor(Math.random()*TOTAL)+1
 if(!nums.includes(n)) nums.push(n)
@@ -221,7 +230,6 @@ else if(v<=3) cell.classList.add("warm")
 else if(v<=6) cell.classList.add("hot")
 else cell.classList.add("extreme")
 
-/* давление */
 cell.style.transform="scale("+(1+v*0.02)+")"
 
 })
@@ -260,7 +268,7 @@ audio.play()
 
 }
 
-/* цикл */
+/* loop */
 
 setInterval(()=>{
 
