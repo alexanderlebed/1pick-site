@@ -22,18 +22,16 @@ text-align:center;
 
 h1{margin-top:20px;}
 
+#subtitle{color:#9f9;}
+#tagline{color:#7fffd4;}
+
 #timer{font-size:40px;margin-top:10px;}
+
 #players{color:#9f9;margin-top:5px;}
 
-#score{color:#0ff;margin-top:6px;}
-#rank{color:#ff0;}
-#streak{color:#f80;}
-
-#leaderboard{
-margin-top:15px;
-font-size:14px;
-color:#fff;
-}
+#score{margin-top:6px;color:#0ff;font-size:18px;}
+#rank{color:#ff0;margin-top:4px;}
+#streak{color:#f80;margin-top:4px;}
 
 #result{
 margin-top:10px;
@@ -58,7 +56,11 @@ align-items:center;
 justify-content:center;
 cursor:pointer;
 font-size:18px;
+
 background:linear-gradient(#111,#000);
+box-shadow:
+0 4px 10px rgba(0,0,0,0.8),
+inset 0 1px 2px rgba(255,255,255,0.1);
 }
 
 .cold{color:#0f0;}
@@ -77,14 +79,15 @@ box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
 
 <h1>1pick</h1>
 
+<div id="subtitle">Pick one number</div>
+<div id="tagline">Avoid the crowd</div>
+
 <div id="timer">20</div>
 <div id="players"></div>
 
 <div id="score">Points: 0</div>
 <div id="rank">Rank: Beginner</div>
 <div id="streak">Streak: 0</div>
-
-<div id="leaderboard">Top today:<br>loading...</div>
 
 <div id="result"></div>
 
@@ -97,17 +100,19 @@ const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
-/* уникальный ID игрока */
+/* 👇 ДОБАВЛЕНО: уникальный игрок */
 let playerId = localStorage.getItem("player_id")
 if(!playerId){
-playerId = "P" + Math.floor(Math.random()*1000000)
+playerId = "P"+Math.floor(Math.random()*1000000)
 localStorage.setItem("player_id", playerId)
 }
 
 let TOTAL=49
 let selected=null
+
 let score=0
 let streak=0
+let bestStreak=0
 
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
@@ -127,7 +132,11 @@ selected=i
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-await client.from("votes").insert({ number:i })
+/* 👇 ВАЖНО: insert → upsert */
+await client.from("votes").upsert({
+player: playerId,
+number: i
+})
 
 }
 
@@ -135,7 +144,7 @@ grid.appendChild(cell)
 cells.push(cell)
 }
 
-/* load votes */
+/* загрузка */
 
 async function loadVotes(){
 
@@ -160,39 +169,6 @@ document.getElementById("players").innerText =
 heatmap()
 }
 
-/* leaderboard save */
-
-async function saveScore(){
-
-await client.from("scores").upsert({
-player:playerId,
-points:score
-})
-
-}
-
-/* leaderboard load */
-
-async function loadLeaderboard(){
-
-let { data } = await client
-.from("scores")
-.select("*")
-.order("points",{ascending:false})
-.limit(5)
-
-if(!data) return
-
-let html="Top today:<br>"
-
-data.forEach((p,i)=>{
-html+=(i+1)+". "+p.player+" — "+p.points+"<br>"
-})
-
-document.getElementById("leaderboard").innerHTML=html
-
-}
-
 /* heat */
 
 function heatmap(){
@@ -211,16 +187,19 @@ else cell.classList.add("extreme")
 })
 }
 
-/* rank */
+/* ранги */
 
-function getRank(p){
-if(p<50) return "Beginner"
-if(p<150) return "Thinker"
-if(p<300) return "Strategist"
-return "Master"
+function getRank(points){
+
+if(points<50) return "Beginner"
+if(points<150) return "Thinker"
+if(points<300) return "Strategist"
+if(points<600) return "Master"
+return "Oracle"
+
 }
 
-/* result */
+/* результат */
 
 function showResult(){
 
@@ -229,31 +208,47 @@ if(selected==null) return
 let my=popularity[selected-1]
 
 let gain=0
+let text=""
 
-if(my<=1){gain=10;streak++}
-else if(my<=3){gain=5;streak++}
-else if(my<=6){gain=2;streak=0}
-else{gain=0;streak=0}
+if(my<=1){
+gain=10
+text="🔥 Perfect +10"
+streak++
+}
+else if(my<=3){
+gain=5
+text="👍 Good +5"
+streak++
+}
+else if(my<=6){
+gain=2
+text="😐 Crowded +2"
+streak=0
+}
+else{
+gain=0
+text="❌ Too obvious"
+streak=0
+}
 
 score+=gain
 
+if(streak>bestStreak) bestStreak=streak
+
 document.getElementById("score").innerText="Points: "+score
 document.getElementById("rank").innerText="Rank: "+getRank(score)
-document.getElementById("streak").innerText="Streak: "+streak
-
-saveScore()
-loadLeaderboard()
-
-let txt = gain>0 ? "+"+gain : "0"
+document.getElementById("streak").innerText="Streak: "+streak+" (best "+bestStreak+")"
 
 let el=document.getElementById("result")
-el.innerText=txt
+el.innerText=text
 
-setTimeout(()=>{el.innerText=""},2000)
+setTimeout(()=>{
+el.innerText=""
+},2000)
 
 }
 
-/* timer */
+/* таймер */
 
 setInterval(()=>{
 
