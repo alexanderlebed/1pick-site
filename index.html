@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 
 <meta charset="UTF-8">
@@ -9,6 +8,8 @@
 <title>1pick</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
 
@@ -24,64 +25,20 @@ h1{margin-top:20px;}
 
 #subtitle{
 color:#9f9;
+margin-bottom:10px;
+}
+
+#tagline{
+color:#7fffd4;
 margin-bottom:15px;
 }
 
-#layout{
-display:flex;
-justify-content:center;
-gap:20px;
-flex-wrap:wrap;
-}
-
-#lcd{
-background:rgba(210,255,210,0.85);
-padding:18px;
-border-radius:18px;
-color:#132;
-width:420px;
-box-shadow:0 0 30px rgba(0,255,150,0.3) inset;
-}
-
-#timer{font-size:40px;}
-
-.metric{
-font-size:18px;
-margin-top:5px;
-}
-
-/* crowd */
-
-#crowdbar{
-height:16px;
-background:linear-gradient(
-to right,
-#00ff88,
-#88ff00,
-#ffff00,
-#ff8800,
-#ff0000
-);
-border:1px solid #0a5;
-margin-top:8px;
-}
-
-#crowdlevel{
-height:100%;
-width:0%;
-background:#000;
-opacity:0.6;
-transition:0.3s;
-}
-
-/* grid */
-
 #grid{
 display:grid;
-grid-template-columns:repeat(5,1fr);
-gap:12px;
+grid-template-columns:repeat(7,1fr);
+gap:10px;
 width:95vw;
-max-width:420px;
+max-width:520px;
 margin:20px auto;
 }
 
@@ -91,9 +48,7 @@ display:flex;
 align-items:center;
 justify-content:center;
 cursor:pointer;
-font-size:22px;
-
-border:none;
+font-size:18px;
 
 background:linear-gradient(#111,#000);
 box-shadow:
@@ -101,16 +56,15 @@ box-shadow:
 inset 0 1px 2px rgba(255,255,255,0.1);
 
 transition:.2s;
+border:none;
 }
 
-/* цвета толпы */
+/* heat */
 
 .cold{color:#0f0;}
 .warm{color:#aa0;}
 .hot{color:#f50;}
 .extreme{color:#f00;}
-
-/* выбранные — неон */
 
 .mine{
 box-shadow:
@@ -118,6 +72,8 @@ box-shadow:
 0 0 25px #00ffaa,
 inset 0 1px 2px rgba(255,255,255,0.2);
 }
+
+#timer{font-size:40px;margin-top:10px;}
 
 </style>
 </head>
@@ -127,41 +83,32 @@ inset 0 1px 2px rgba(255,255,255,0.2);
 <h1>1pick</h1>
 
 <div id="subtitle">
-Pick 3 numbers. Avoid the crowd.
+You have ONE pick to beat the crowd
 </div>
 
-<div id="layout">
-
-<div>
-
-<div id="lcd">
+<div id="tagline">
+Think different. Win.
+</div>
 
 <div id="timer">20</div>
 
-<div class="metric">PLAYERS 100</div>
-
-<div style="margin-top:10px">
-SAFE ← CROWD
-<div id="crowdbar">
-<div id="crowdlevel"></div>
-</div>
-</div>
-
-</div>
-
 <div id="grid"></div>
-
-</div>
-
-</div>
 
 <script>
 
-let TOTAL=15
-let PICK=3
-let time=20
+/* 🔑 ВСТАВЬ СВОИ ДАННЫЕ */
+const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
+const SUPABASE_KEY = "YOUR_ANON_KEY"
 
-let selected=[]
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+
+/* game */
+
+let TOTAL=49
+let time=20
+let selected=null
+let round=Math.floor(Date.now()/20000)
+
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
 
@@ -172,19 +119,21 @@ for(let i=1;i<=TOTAL;i++){
 let cell=document.createElement("div")
 
 cell.className="number cold"
-cell.innerText=i
+cell.innerText=i.toString().padStart(2,"0")
 
-cell.onclick=()=>{
+cell.onclick=async ()=>{
 
 if(navigator.vibrate) navigator.vibrate(15)
 
-if(selected.includes(i)){
-selected=selected.filter(x=>x!==i)
-cell.classList.remove("mine")
-}else if(selected.length<PICK){
-selected.push(i)
+selected=i
+
+cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
-}
+
+await supabase.from("votes").insert({
+number:i,
+round:round
+})
 
 }
 
@@ -193,28 +142,27 @@ cells.push(cell)
 
 }
 
-/* simulate */
-function simulate(){
+/* загрузка голосов */
+
+async function loadVotes(){
+
+let { data } = await supabase
+.from("votes")
+.select("number")
+.eq("round", round)
 
 popularity=new Array(TOTAL).fill(0)
 
-for(let p=0;p<100;p++){
+data.forEach(v=>{
+popularity[v.number-1]++
+})
 
-let nums=[]
-while(nums.length<PICK){
-let n=Math.floor(Math.random()*TOTAL)+1
-if(!nums.includes(n)) nums.push(n)
-}
-
-nums.forEach(x=>popularity[x-1]++)
+heatmap()
 
 }
 
-selected.forEach(x=>popularity[x-1]++)
+/* heat */
 
-}
-
-/* только цвет, БЕЗ scale */
 function heatmap(){
 
 cells.forEach((cell,i)=>{
@@ -224,45 +172,22 @@ cell.classList.remove("cold","warm","hot","extreme")
 let v=popularity[i]
 
 if(v==0) cell.classList.add("cold")
-else if(v<=3) cell.classList.add("warm")
-else if(v<=6) cell.classList.add("hot")
+else if(v<=2) cell.classList.add("warm")
+else if(v<=5) cell.classList.add("hot")
 else cell.classList.add("extreme")
 
 })
 
 }
 
-/* crowd */
-function updateCrowd(){
+/* realtime */
 
-let sum=0
-selected.forEach(n=>sum+=popularity[n-1])
-
-let crowd=Math.min(100,sum*3)
-document.getElementById("crowdlevel").style.width=crowd+"%"
-
-}
-
-/* звук */
-function playWinSound(){
-
-let notes=["C4","E4","G4"]
-
-notes.forEach((n,i)=>{
-
-setTimeout(()=>{
-
-let audio=new Audio(
-"https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/MusyngKite/acoustic_grand_piano-mp3/"+n+".mp3"
-)
-
-audio.play()
-
-},i*200)
-
+supabase
+.channel('votes')
+.on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, payload => {
+loadVotes()
 })
-
-}
+.subscribe()
 
 /* loop */
 
@@ -270,29 +195,21 @@ setInterval(()=>{
 
 time--
 
-let t=document.getElementById("timer")
-t.innerText="Next update in "+time
-
-if(time<=3){
-t.style.color="#f00"
-t.style.transform="scale(1.2)"
-}else{
-t.style.color="#132"
-t.style.transform="scale(1)"
-}
-
-simulate()
-heatmap()
-updateCrowd()
+document.getElementById("timer").innerText="Next update in "+time
 
 if(time<=0){
 
-playWinSound()
+/* новый раунд */
+round=Math.floor(Date.now()/20000)
+selected=null
 
-if(navigator.vibrate) navigator.vibrate([50,30,50])
+cells.forEach(c=>c.classList.remove("mine"))
 
 time=20
+
 }
+
+loadVotes()
 
 },1000)
 
