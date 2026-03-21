@@ -16,34 +16,24 @@ body{
 background:#000;
 color:#cfc;
 font-family:'Roboto Mono', monospace;
-margin:0;
 text-align:center;
+margin:0;
 }
 
-h1{margin-top:20px;}
+#timer{
+font-size:40px;
+margin-top:20px;
+}
 
-#subtitle{color:#9f9;}
-#tagline{color:#7fffd4;}
-
-#timer{font-size:40px;margin-top:10px;}
-
-#players{color:#9f9;margin-top:5px;}
+#rarity{
+margin-top:10px;
+color:#7fffd4;
+height:20px;
+}
 
 #score{
 margin-top:5px;
 color:#0ff;
-}
-
-#result{
-margin-top:10px;
-font-size:18px;
-color:#7fffd4;
-height:28px;
-}
-
-#jackpot{
-margin-top:5px;
-color:#ff0;
 }
 
 #grid{
@@ -61,13 +51,7 @@ display:flex;
 align-items:center;
 justify-content:center;
 cursor:pointer;
-font-size:18px;
-
-background:linear-gradient(#111,#000);
-box-shadow:
-0 4px 10px rgba(0,0,0,0.8),
-inset 0 1px 2px rgba(255,255,255,0.1);
-
+background:#111;
 }
 
 .cold{color:#0f0;}
@@ -76,7 +60,7 @@ inset 0 1px 2px rgba(255,255,255,0.1);
 .extreme{color:#f00;}
 
 .mine{
-box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
+box-shadow:0 0 12px #7fffd4;
 }
 
 </style>
@@ -84,25 +68,18 @@ box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
 
 <body>
 
-<h1>1pick</h1>
-
-<div id="subtitle">Beat the crowd. Win real reward.</div>
-<div id="tagline">Think different. Win.</div>
-
 <div id="timer">20</div>
-<div id="players"></div>
-<div id="jackpot">🏆 Daily Prize: €10</div>
-<div id="score">Your score: 0</div>
-<div id="result"></div>
+<div id="rarity"></div>
+<div id="score">Points: 0</div>
 
 <div id="grid"></div>
 
 <script>
 
-const SUPABASE_URL = "https://uakvsitsifrsrkplvxma.supabase.co"
-const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
+const SUPABASE_URL="https://uakvsitsifrsrkplvxma.supabase.co"
+const SUPABASE_KEY="sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+const client=supabase.createClient(SUPABASE_URL,SUPABASE_KEY)
 
 let TOTAL=49
 let selected=null
@@ -118,15 +95,16 @@ for(let i=1;i<=TOTAL;i++){
 
 let cell=document.createElement("div")
 cell.className="number cold"
-cell.innerText=i.toString().padStart(2,"0")
+cell.innerText=i
 
 cell.onclick=async ()=>{
 
 selected=i
+
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-await client.from("votes").insert({ number:i })
+await client.from("votes").insert({number:i})
 
 }
 
@@ -140,12 +118,12 @@ async function loadVotes(){
 
 let since=new Date(Date.now()-20000).toISOString()
 
-let { data } = await client
+let {data}=await client
 .from("votes")
-.select("number,created_at")
+.select("number")
 .gte("created_at",since)
 
-if(!data) return
+if(!data)return
 
 popularity=new Array(TOTAL).fill(0)
 
@@ -153,10 +131,9 @@ data.forEach(v=>{
 popularity[v.number-1]++
 })
 
-document.getElementById("players").innerText =
-"Players online: "+data.length
-
 heatmap()
+updateRarity()
+
 }
 
 /* heat */
@@ -177,66 +154,61 @@ else cell.classList.add("extreme")
 })
 }
 
-/* result + очки */
+/* смысл */
 
-function showResult(){
+function updateRarity(){
 
 if(selected==null) return
 
 let my=popularity[selected-1]
 
-let gain=0
+let text=""
 
-if(my<=1) gain=10
-else if(my<=3) gain=5
-else if(my<=6) gain=2
+if(my<=1) text="rare"
+else if(my<=3) text="uncommon"
+else if(my<=6) text="common"
+else text="very common"
 
-score+=gain
-
-document.getElementById("score").innerText =
-"Your score: "+score
-
-let txt=""
-
-if(gain>=10){
-txt="🔥 PERFECT — +10"
-}
-else if(gain>=5){
-txt="👍 GOOD — +5"
-}
-else if(gain>0){
-txt="🙂 +2"
-}
-else{
-txt="😬 0"
-}
-
-document.getElementById("result").innerText=txt
+document.getElementById("rarity").innerText=text
 
 }
 
-/* timer */
+/* результат */
 
-setInterval(()=>{
+function endRound(){
 
-let now=Date.now()
-let roundTime=20000
+if(selected==null) return
 
-let currentRound=Math.floor(now/roundTime)
-let timeLeft=Math.ceil((roundTime-(now%roundTime))/1000)
+let my=popularity[selected-1]
 
-document.getElementById("timer").innerText=timeLeft
+if(my<=1) score+=10
+else if(my<=3) score+=5
+else if(my<=6) score+=2
 
-if(lastRound!==null && currentRound!==lastRound){
-
-showResult()
+document.getElementById("score").innerText="Points: "+score
 
 selected=null
 cells.forEach(c=>c.classList.remove("mine"))
 
 }
 
-lastRound=currentRound
+/* loop */
+
+setInterval(()=>{
+
+let now=Date.now()
+let roundTime=20000
+
+let round=Math.floor(now/roundTime)
+let time=Math.ceil((roundTime-(now%roundTime))/1000)
+
+document.getElementById("timer").innerText=time
+
+if(lastRound!==null && round!==lastRound){
+endRound()
+}
+
+lastRound=round
 
 loadVotes()
 
