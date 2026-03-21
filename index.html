@@ -20,21 +20,9 @@ text-align:center;
 margin:0;
 }
 
-#timer{
-font-size:40px;
-margin-top:20px;
-}
-
-#rarity{
-margin-top:10px;
-color:#7fffd4;
-height:20px;
-}
-
-#score{
-margin-top:5px;
-color:#0ff;
-}
+#timer{font-size:40px;margin-top:20px;}
+#result{margin-top:10px;height:24px;}
+#score{margin-top:5px;color:#0ff;}
 
 #grid{
 display:grid;
@@ -69,7 +57,7 @@ box-shadow:0 0 12px #7fffd4;
 <body>
 
 <div id="timer">20</div>
-<div id="rarity"></div>
+<div id="result"></div>
 <div id="score">Points: 0</div>
 
 <div id="grid"></div>
@@ -132,7 +120,6 @@ popularity[v.number-1]++
 })
 
 heatmap()
-updateRarity()
 
 }
 
@@ -154,26 +141,7 @@ else cell.classList.add("extreme")
 })
 }
 
-/* rarity */
-
-function updateRarity(){
-
-if(selected==null) return
-
-let my=popularity[selected-1]
-
-let text=""
-
-if(my<=1) text="rare"
-else if(my<=3) text="uncommon"
-else if(my<=6) text="common"
-else text="very common"
-
-document.getElementById("rarity").innerText=text
-
-}
-
-/* end */
+/* winner */
 
 function endRound(){
 
@@ -182,11 +150,18 @@ if(selected==null) return
 let min = Math.min(...popularity.filter(v=>v>0))
 let my = popularity[selected-1]
 
+let el=document.getElementById("result")
+
 if(my===min){
 score+=10
+el.innerText="WIN +10"
+}else{
+el.innerText="lose"
 }
 
 document.getElementById("score").innerText="Points: "+score
+
+setTimeout(()=>{el.innerText=""},2000)
 
 selected=null
 cells.forEach(c=>c.classList.remove("mine"))
