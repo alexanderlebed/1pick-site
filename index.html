@@ -27,7 +27,10 @@ h1{margin-top:20px;}
 
 #timer{font-size:40px;margin-top:10px;}
 #players{color:#9f9;margin-top:5px;}
-#jackpot{color:#0ff;margin-top:5px;font-size:18px;}
+
+#score{margin-top:6px;color:#0ff;font-size:18px;}
+#rank{color:#ff0;margin-top:4px;}
+#streak{color:#f80;margin-top:4px;}
 
 #result{
 margin-top:10px;
@@ -39,7 +42,7 @@ height:26px;
 #grid{
 display:grid;
 grid-template-columns:repeat(3,1fr);
-gap:12px;
+gap:10px;
 width:95vw;
 max-width:320px;
 margin:20px auto;
@@ -51,29 +54,8 @@ display:flex;
 align-items:center;
 justify-content:center;
 cursor:pointer;
-font-size:26px;
-font-weight:bold;
-
-background:#000;
-border-radius:6px;
-
-box-shadow:
-0 3px 0 #000,
-0 6px 0 #000,
-0 8px 12px rgba(0,0,0,0.9),
-inset 0 1px 0 rgba(255,255,255,0.15);
-
-text-shadow:0 0 6px currentColor;
-
-transition:0.05s;
-}
-
-.number:active{
-transform:translateY(4px);
-box-shadow:
-0 1px 0 #000,
-0 2px 0 #000,
-0 4px 6px rgba(0,0,0,0.9);
+font-size:18px;
+background:#111;
 }
 
 .cold{color:#0f0;}
@@ -82,10 +64,7 @@ box-shadow:
 .extreme{color:#f00;}
 
 .mine{
-box-shadow:
-0 0 10px #7fffd4,
-0 0 25px #00ffaa,
-0 6px 12px rgba(0,255,200,0.3);
+box-shadow:0 0 14px #7fffd4;
 }
 
 </style>
@@ -95,12 +74,15 @@ box-shadow:
 
 <h1>1pick</h1>
 
-<div id="subtitle">You have ONE pick to beat the crowd</div>
-<div id="tagline">Think different. Win.</div>
+<div id="subtitle">Pick one number</div>
+<div id="tagline">Avoid the crowd</div>
 
-<div id="timer">30</div>
-<div id="players">Players online: 0</div>
-<div id="jackpot">Jackpot: €0</div>
+<div id="timer">20</div>
+<div id="players"></div>
+
+<div id="score">Points: 0</div>
+<div id="rank">Rank: Beginner</div>
+<div id="streak">Streak: 0</div>
 
 <div id="result"></div>
 
@@ -111,51 +93,61 @@ box-shadow:
 const SUPABASE_URL = "https://uakvsitsifrsrkplvxma.supabase.co"
 const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
-let TOTAL=9
-let selected=null
-let cells=[]
-let popularity=new Array(TOTAL).fill(0)
+console.log("Supabase client:", client)
 
-let roundTime = 30000
-let lastRound = null
-
-let jackpot = 0
-let ticketPrice = 1
-
-// player id (оставляем)
+/* игрок */
 let playerId = localStorage.getItem("player_id")
 if(!playerId){
-playerId = crypto.randomUUID()
+playerId = "P"+Math.floor(Math.random()*1000000)
 localStorage.setItem("player_id", playerId)
 }
 
-// GRID
+let TOTAL=9
+let selected=null
+
+let score=0
+let streak=0
+let bestStreak=0
+
+let popularity=new Array(TOTAL).fill(0)
+let cells=[]
+let lastRound=null
+
+function getRound(){
+return Math.floor(Date.now()/20000)
+}
+
 const grid=document.getElementById("grid")
 
 for(let i=1;i<=TOTAL;i++){
 
 let cell=document.createElement("div")
 cell.className="number cold"
-cell.innerText=i
+cell.innerText=i.toString().padStart(2,"0")
 
 cell.onclick=async ()=>{
-
-if(navigator.vibrate) navigator.vibrate(20)
 
 selected=i
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-let round = Math.floor(Date.now()/roundTime)
-
-// ❗ ВАЖНО: insert (не upsert)
-await client.from("votes").insert({
-number:i,
-player:playerId,
-round:round
+let { error } = await client.from("votes").upsert(
+{
+  player: playerId,
+  number: i,
+  round: getRound()
+},
+{
+  onConflict: "player"
 })
+
+if(error){
+console.log("INSERT ERROR:", error)
+}else{
+console.log("INSERT OK")
+}
 
 }
 
@@ -163,34 +155,38 @@ grid.appendChild(cell)
 cells.push(cell)
 }
 
-// LOAD
 async function loadVotes(){
 
-let round = Math.floor(Date.now()/roundTime)
-
-let { data } = await client
+let { data, error } = await client
 .from("votes")
-.select("number")
-.eq("round",round)
+.select("number,round")
+
+if(error){
+console.log("LOAD ERROR:", error)
+return
+}
 
 if(!data) return
 
+let currentRound = getRound()
+
 popularity=new Array(TOTAL).fill(0)
 
+let count = 0
+
 data.forEach(v=>{
+if(v.round === currentRound){
 popularity[v.number-1]++
+count++
+}
 })
 
-// 🔥 ГЛАВНЫЙ ФИКС
-let playersCount = data.length
-
 document.getElementById("players").innerText =
-"Players online: " + playersCount
+"Players online: "+count
 
 heatmap()
 }
 
-// HEAT
 function heatmap(){
 
 cells.forEach((cell,i)=>{
@@ -201,70 +197,59 @@ let v=popularity[i]
 
 if(v<=1) cell.classList.add("cold")
 else if(v<=3) cell.classList.add("warm")
-else if(v<=5) cell.classList.add("hot")
+else if(v<=6) cell.classList.add("hot")
 else cell.classList.add("extreme")
 
 })
 }
 
-// WIN LOGIC (3%)
-function calculateWinners(){
+function getRank(points){
 
-let totalPlayers = popularity.reduce((a,b)=>a+b,0)
-let limit = Math.floor(totalPlayers * 0.03)
+if(points<50) return "Beginner"
+if(points<150) return "Thinker"
+if(points<300) return "Strategist"
+if(points<600) return "Master"
+return "Oracle"
 
-let arr = popularity.map((v,i)=>({num:i+1,count:v}))
-arr.sort((a,b)=>a.count-b.count)
-
-let picked = 0
-let winnersNumbers = []
-
-for(let x of arr){
-if(picked + x.count > limit) break
-picked += x.count
-winnersNumbers.push(x.num)
 }
 
-return winnersNumbers
-}
-
-// RESULT
 function showResult(){
 
 if(selected==null) return
 
-let totalPlayers = popularity.reduce((a,b)=>a+b,0)
-let roundPot = totalPlayers * ticketPrice
+let my=popularity[selected-1]
 
-let winners = calculateWinners()
-
+let gain=0
 let text=""
 
-if(winners.length===0){
-jackpot += roundPot
-text="💣 No winners"
-}else{
-if(winners.includes(selected)){
-text="🔥 You WON"
-}else{
-text="❌ Too popular"
+if(my<=1){
+gain=10
+text="🔥 Perfect +10"
+streak++
 }
+else if(my<=3){
+gain=5
+text="👍 Good +5"
+streak++
+}
+else if(my<=6){
+gain=2
+text="😐 Crowded +2"
+streak=0
+}
+else{
+gain=0
+text="❌ Too obvious"
+streak=0
 }
 
-document.getElementById("jackpot").innerText =
-"Jackpot: €" + jackpot.toFixed(0)
+score+=gain
 
-// звук
-let notes=["C4","E4","G4"]
-notes.forEach((n,i)=>{
-setTimeout(()=>{
-let a=new Audio("https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/MusyngKite/acoustic_grand_piano-mp3/"+n+".mp3")
-a.play()
-},i*200)
-})
+if(streak>bestStreak) bestStreak=streak
 
-// вибрация
-if(navigator.vibrate) navigator.vibrate([50,50,50])
+document.getElementById("score").innerText="Points: "+score
+document.getElementById("rank").innerText="Rank: "+getRank(score)
+document.getElementById("streak").innerText="Streak: "+streak+" (best "+bestStreak+")"
 
 let el=document.getElementById("result")
 el.innerText=text
@@ -273,10 +258,11 @@ setTimeout(()=>{ el.innerText="" },2000)
 
 }
 
-// TIMER
 setInterval(()=>{
 
 let now=Date.now()
+let roundTime=20000
+
 let currentRound=Math.floor(now/roundTime)
 let timeLeft=Math.ceil((roundTime-(now%roundTime))/1000)
 
