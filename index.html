@@ -8,7 +8,7 @@
 <title>1pick</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
 <style>
 
@@ -28,10 +28,6 @@ h1{margin-top:20px;}
 #timer{font-size:40px;margin-top:10px;}
 #players{color:#9f9;margin-top:5px;}
 
-#score{margin-top:6px;color:#0ff;font-size:18px;}
-#rank{color:#ff0;margin-top:4px;}
-#streak{color:#f80;margin-top:4px;}
-
 #result{
 margin-top:10px;
 font-size:20px;
@@ -47,14 +43,18 @@ width:95vw;
 max-width:320px;
 margin:20px auto;
 }
+
 .number{
 aspect-ratio:1/1;
 display:flex;
 align-items:center;
 justify-content:center;
 cursor:pointer;
-font-size:18px;
-background:#111;
+font-size:22px;
+background:linear-gradient(#111,#000);
+box-shadow:
+0 4px 10px rgba(0,0,0,0.8),
+inset 0 1px 2px rgba(255,255,255,0.1);
 }
 
 .cold{color:#0f0;}
@@ -63,7 +63,7 @@ background:#111;
 .extreme{color:#f00;}
 
 .mine{
-box-shadow:0 0 14px #7fffd4;
+box-shadow:0 0 14px #7fffd4,0 0 25px #00ffaa;
 }
 
 </style>
@@ -73,15 +73,11 @@ box-shadow:0 0 14px #7fffd4;
 
 <h1>1pick</h1>
 
-<div id="subtitle">Pick one number</div>
-<div id="tagline">Avoid the crowd</div>
+<div id="subtitle">You have ONE pick to beat the crowd</div>
+<div id="tagline">Think different. Win.</div>
 
-<div id="timer">20</div>
-<div id="players"></div>
-
-<div id="score">Points: 0</div>
-<div id="rank">Rank: Beginner</div>
-<div id="streak">Streak: 0</div>
+<div id="timer">30</div>
+<div id="players">Players online: ...</div>
 
 <div id="result"></div>
 
@@ -92,39 +88,31 @@ box-shadow:0 0 14px #7fffd4;
 const SUPABASE_URL = "https://uakvsitsifrsrkplvxma.supabase.co"
 const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
-const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-
-console.log("Supabase client:", client)
-
-/* игрок */
-let playerId = localStorage.getItem("player_id")
-if(!playerId){
-playerId = "P"+Math.floor(Math.random()*1000000)
-localStorage.setItem("player_id", playerId)
-}
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
 let TOTAL=9
 let selected=null
-
-let score=0
-let streak=0
-let bestStreak=0
-
-let popularity=new Array(TOTAL).fill(0)
 let cells=[]
-let lastRound=null
+let popularity=new Array(TOTAL).fill(0)
 
-function getRound(){
-return Math.floor(Date.now()/20000)
+let roundTime = 30000
+let lastRound = null
+
+// уникальный игрок
+let playerId = localStorage.getItem("player_id")
+if(!playerId){
+playerId = crypto.randomUUID()
+localStorage.setItem("player_id", playerId)
 }
 
+// GRID
 const grid=document.getElementById("grid")
 
 for(let i=1;i<=TOTAL;i++){
 
 let cell=document.createElement("div")
 cell.className="number cold"
-cell.innerText=i.toString().padStart(2,"0")
+cell.innerText=i
 
 cell.onclick=async ()=>{
 
@@ -132,21 +120,13 @@ selected=i
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-let { error } = await client.from("votes").upsert(
-{
-  player: playerId,
-  number: i,
-  round: getRound()
-},
-{
-  onConflict: "player"
-})
+let round = Math.floor(Date.now()/roundTime)
 
-if(error){
-console.log("INSERT ERROR:", error)
-}else{
-console.log("INSERT OK")
-}
+await client.from("votes").insert({
+number:i,
+player:playerId,
+round:round
+})
 
 }
 
@@ -154,38 +134,34 @@ grid.appendChild(cell)
 cells.push(cell)
 }
 
+// LOAD
 async function loadVotes(){
 
-let { data, error } = await client
-.from("votes")
-.select("number,round")
+let round = Math.floor(Date.now()/roundTime)
 
-if(error){
-console.log("LOAD ERROR:", error)
-return
-}
+let { data } = await client
+.from("votes")
+.select("number,player")
+.eq("round",round)
 
 if(!data) return
 
-let currentRound = getRound()
-
 popularity=new Array(TOTAL).fill(0)
 
-let count = 0
+let uniquePlayers = new Set()
 
 data.forEach(v=>{
-if(v.round === currentRound){
 popularity[v.number-1]++
-count++
-}
+uniquePlayers.add(v.player)
 })
 
 document.getElementById("players").innerText =
-"Players online: "+count
+"Players online: "+uniquePlayers.size
 
 heatmap()
 }
 
+// HEAT
 function heatmap(){
 
 cells.forEach((cell,i)=>{
@@ -196,59 +172,54 @@ let v=popularity[i]
 
 if(v<=1) cell.classList.add("cold")
 else if(v<=3) cell.classList.add("warm")
-else if(v<=6) cell.classList.add("hot")
+else if(v<=5) cell.classList.add("hot")
 else cell.classList.add("extreme")
 
 })
 }
 
-function getRank(points){
+// RESULT (ТВОЙ АЛГОРИТМ)
+function calculateWinners(){
 
-if(points<50) return "Beginner"
-if(points<150) return "Thinker"
-if(points<300) return "Strategist"
-if(points<600) return "Master"
-return "Oracle"
+let totalPlayers = popularity.reduce((a,b)=>a+b,0)
+let limit = Math.floor(totalPlayers * 0.03)
+
+let arr = popularity.map((v,i)=>({num:i+1,count:v}))
+arr.sort((a,b)=>a.count-b.count)
+
+let picked = 0
+let winnersNumbers = []
+
+for(let x of arr){
+
+if(picked + x.count > limit) break
+
+picked += x.count
+winnersNumbers.push(x.num)
 
 }
 
+return winnersNumbers
+}
+
+// SHOW RESULT
 function showResult(){
 
 if(selected==null) return
 
-let my=popularity[selected-1]
+let winners = calculateWinners()
 
-let gain=0
 let text=""
 
-if(my<=1){
-gain=10
-text="🔥 Perfect +10"
-streak++
+if(winners.length===0){
+text="💣 Nobody won"
 }
-else if(my<=3){
-gain=5
-text="👍 Good +5"
-streak++
-}
-else if(my<=6){
-gain=2
-text="😐 Crowded +2"
-streak=0
+else if(winners.includes(selected)){
+text="🔥 You WON"
 }
 else{
-gain=0
-text="❌ Too obvious"
-streak=0
+text="❌ Too popular"
 }
-
-score+=gain
-
-if(streak>bestStreak) bestStreak=streak
-
-document.getElementById("score").innerText="Points: "+score
-document.getElementById("rank").innerText="Rank: "+getRank(score)
-document.getElementById("streak").innerText="Streak: "+streak+" (best "+bestStreak+")"
 
 let el=document.getElementById("result")
 el.innerText=text
@@ -257,11 +228,10 @@ setTimeout(()=>{ el.innerText="" },2000)
 
 }
 
+// TIMER
 setInterval(()=>{
 
 let now=Date.now()
-let roundTime=20000
-
 let currentRound=Math.floor(now/roundTime)
 let timeLeft=Math.ceil((roundTime-(now%roundTime))/1000)
 
