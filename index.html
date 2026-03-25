@@ -121,6 +121,19 @@ function getRound(){
 return Math.floor(Date.now()/20000)
 }
 
+/* 🎹 РОЯЛЬ */
+function playWinSound(){
+let notes=["C4","E4","G4"]
+notes.forEach((n,i)=>{
+setTimeout(()=>{
+let audio=new Audio(
+"https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@master/MusyngKite/acoustic_grand_piano-mp3/"+n+".mp3"
+)
+audio.play()
+},i*200)
+})
+}
+
 const grid=document.getElementById("grid")
 
 for(let i=1;i<=TOTAL;i++){
@@ -131,14 +144,13 @@ cell.innerText=i.toString().padStart(2,"0")
 
 cell.onclick=async ()=>{
 
-// 🔥 ВИБРАЦИЯ КЛИК
 if(navigator.vibrate) navigator.vibrate(20)
 
 selected=i
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
 
-let { error } = await client.from("votes").upsert(
+await client.from("votes").upsert(
 {
   player: playerId,
   number: i,
@@ -259,6 +271,10 @@ if(winners.includes(selected)){
 gain = Math.floor(pool / winners.length)
 text="🔥 WIN +" + gain
 streak++
+
+/* 🎹 ТОЛЬКО ЗДЕСЬ */
+playWinSound()
+
 }else{
 text="❌ Lost"
 streak=0
@@ -279,9 +295,6 @@ document.getElementById("jackpot").innerText =
 
 let el=document.getElementById("result")
 el.innerText=text
-
-// 🔥 ВИБРАЦИЯ КОНЕЦ РАУНДА
-if(navigator.vibrate) navigator.vibrate([50,50,50])
 
 setTimeout(()=>{ el.innerText="" },2000)
 
