@@ -45,7 +45,6 @@ max-width:320px;
 margin:20px auto;
 }
 
-/* 🔥 РЕАЛЬНЫЙ 3D (НЕ МЫЛО) */
 .number{
 aspect-ratio:1/1;
 display:flex;
@@ -58,7 +57,6 @@ font-weight:bold;
 background:#000;
 border-radius:6px;
 
-/* чёткий "железный" 3D */
 box-shadow:
 0 3px 0 #000,
 0 6px 0 #000,
@@ -78,7 +76,6 @@ box-shadow:
 0 4px 6px rgba(0,0,0,0.9);
 }
 
-/* цвета */
 .cold{color:#0f0;}
 .warm{color:#aa0;}
 .hot{color:#f50;}
@@ -102,7 +99,7 @@ box-shadow:
 <div id="tagline">Think different. Win.</div>
 
 <div id="timer">30</div>
-<div id="players">Players online: 1</div>
+<div id="players">Players online: 0</div>
 <div id="jackpot">Jackpot: €0</div>
 
 <div id="result"></div>
@@ -127,7 +124,7 @@ let lastRound = null
 let jackpot = 0
 let ticketPrice = 1
 
-// игрок (1 девайс = 1 игрок)
+// player id (оставляем)
 let playerId = localStorage.getItem("player_id")
 if(!playerId){
 playerId = crypto.randomUUID()
@@ -153,7 +150,8 @@ cell.classList.add("mine")
 
 let round = Math.floor(Date.now()/roundTime)
 
-await client.from("votes").upsert({
+// ❗ ВАЖНО: insert (не upsert)
+await client.from("votes").insert({
 number:i,
 player:playerId,
 round:round
@@ -172,24 +170,19 @@ let round = Math.floor(Date.now()/roundTime)
 
 let { data } = await client
 .from("votes")
-.select("number,player")
+.select("number")
 .eq("round",round)
 
 if(!data) return
 
 popularity=new Array(TOTAL).fill(0)
 
-let uniquePlayers = new Set()
-
 data.forEach(v=>{
 popularity[v.number-1]++
-uniquePlayers.add(v.player)
 })
 
-let playersCount = uniquePlayers.size
-
-// 🔥 ФИКС: не даём быть 0
-if(playersCount===0) playersCount=1
+// 🔥 ГЛАВНЫЙ ФИКС
+let playersCount = data.length
 
 document.getElementById("players").innerText =
 "Players online: " + playersCount
@@ -214,7 +207,7 @@ else cell.classList.add("extreme")
 })
 }
 
-// WIN LOGIC
+// WIN LOGIC (3%)
 function calculateWinners(){
 
 let totalPlayers = popularity.reduce((a,b)=>a+b,0)
@@ -261,7 +254,7 @@ text="❌ Too popular"
 document.getElementById("jackpot").innerText =
 "Jackpot: €" + jackpot.toFixed(0)
 
-// 🎹 звук
+// звук
 let notes=["C4","E4","G4"]
 notes.forEach((n,i)=>{
 setTimeout(()=>{
