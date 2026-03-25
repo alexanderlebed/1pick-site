@@ -95,8 +95,6 @@ const SUPABASE_KEY = "sb_publishable_9h9b3CJknUUt-ucR5msSRg_4jRJ-QPb"
 
 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 
-console.log("Supabase client:", client)
-
 /* игрок */
 let playerId = localStorage.getItem("player_id")
 if(!playerId){
@@ -114,6 +112,9 @@ let bestStreak=0
 let popularity=new Array(TOTAL).fill(0)
 let cells=[]
 let lastRound=null
+
+let jackpot = 0
+let ticket = 1
 
 function getRound(){
 return Math.floor(Date.now()/20000)
@@ -143,12 +144,6 @@ let { error } = await client.from("votes").upsert(
   onConflict: "player"
 })
 
-if(error){
-console.log("INSERT ERROR:", error)
-}else{
-console.log("INSERT OK")
-}
-
 }
 
 grid.appendChild(cell)
@@ -157,14 +152,9 @@ cells.push(cell)
 
 async function loadVotes(){
 
-let { data, error } = await client
+let { data } = await client
 .from("votes")
 .select("number,round")
-
-if(error){
-console.log("LOAD ERROR:", error)
-return
-}
 
 if(!data) return
 
@@ -203,6 +193,32 @@ else cell.classList.add("extreme")
 })
 }
 
+/* 🔥 НОВАЯ ЛОГИКА */
+function getWinners(){
+
+let total = popularity.reduce((a,b)=>a+b,0)
+let limit = Math.floor(total * 0.03)
+
+let arr = []
+
+for(let i=0;i<TOTAL;i++){
+arr.push({num:i+1, count:popularity[i]})
+}
+
+arr.sort((a,b)=>a.count-b.count)
+
+let sum = 0
+let winners = []
+
+for(let x of arr){
+if(sum + x.count > limit) break
+sum += x.count
+winners.push(x.num)
+}
+
+return winners
+}
+
 function getRank(points){
 
 if(points<50) return "Beginner"
@@ -217,30 +233,33 @@ function showResult(){
 
 if(selected==null) return
 
-let my=popularity[selected-1]
+let total = popularity.reduce((a,b)=>a+b,0)
+let bank = total * ticket
+
+let winners = getWinners()
 
 let gain=0
 let text=""
 
-if(my<=1){
-gain=10
-text="🔥 Perfect +10"
+if(winners.length===0){
+
+jackpot += bank
+text="💣 No winners → jackpot grows"
+
+}else{
+
+let pool = jackpot + bank
+jackpot = 0
+
+if(winners.includes(selected)){
+gain = Math.floor(pool / winners.length)
+text="🔥 WIN +" + gain
 streak++
-}
-else if(my<=3){
-gain=5
-text="👍 Good +5"
-streak++
-}
-else if(my<=6){
-gain=2
-text="😐 Crowded +2"
+}else{
+text="❌ Lost"
 streak=0
 }
-else{
-gain=0
-text="❌ Too obvious"
-streak=0
+
 }
 
 score+=gain
