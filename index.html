@@ -131,6 +131,9 @@ cell.innerText=i.toString().padStart(2,"0")
 
 cell.onclick=async ()=>{
 
+// 🔥 ВИБРАЦИЯ КЛИК
+if(navigator.vibrate) navigator.vibrate(20)
+
 selected=i
 cells.forEach(c=>c.classList.remove("mine"))
 cell.classList.add("mine")
@@ -194,7 +197,7 @@ else cell.classList.add("extreme")
 })
 }
 
-/* 🔥 НОВАЯ ЛОГИКА */
+/* 3% логика */
 function getWinners(){
 
 let total = popularity.reduce((a,b)=>a+b,0)
@@ -271,8 +274,14 @@ document.getElementById("score").innerText="Points: "+score
 document.getElementById("rank").innerText="Rank: "+getRank(score)
 document.getElementById("streak").innerText="Streak: "+streak+" (best "+bestStreak+")"
 
+document.getElementById("jackpot").innerText =
+"Jackpot: " + jackpot
+
 let el=document.getElementById("result")
 el.innerText=text
+
+// 🔥 ВИБРАЦИЯ КОНЕЦ РАУНДА
+if(navigator.vibrate) navigator.vibrate([50,50,50])
 
 setTimeout(()=>{ el.innerText="" },2000)
 
